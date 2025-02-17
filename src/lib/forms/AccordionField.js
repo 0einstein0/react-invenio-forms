@@ -20,7 +20,7 @@ export class AccordionField extends Component {
         const path = `${errorPath}.${subPath}`;
         if (
           _get(initialValues, path, "") === _get(values, path, "") &&
-          includesPaths.includes(`${errorPath}.${subPath}`)
+          includesPaths.includes(path)
         )
           return true;
       }
@@ -78,7 +78,7 @@ export class AccordionField extends Component {
               tabIndex={0}
             >
               {panel.title.content}
-              <Icon name="angle right" />
+              <Icon name="angle down" />
             </Accordion.Title>
             <Accordion.Content active={activeIndex === index}>
               {panel.content.content}
