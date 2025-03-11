@@ -10,6 +10,7 @@ import { Field, FastField } from "formik";
 import { Accordion, Container, Icon, Label } from "semantic-ui-react";
 import _omit from "lodash/omit";
 import _get from "lodash/get";
+import { flattenAndCategorizeErrors } from "../utils";
 
 export class AccordionField extends Component {
   hasError = (errors, initialValues = undefined, values = undefined) => {
@@ -27,97 +28,114 @@ export class AccordionField extends Component {
     }
     return false;
   };
+  
+  countErrorsAndSeverity = (errors, includePaths) => {
+  // Flatten and categorize errors
+  const { flattenedErrors, severityChecks } = flattenAndCategorizeErrors(errors);
+  
+  // Initialize the count object
+  const count = {};
 
-  flattenErrors = (errors) => {
-    let flattened = {};
-
-    const recurse = (obj, path = "") => {
-      if (Array.isArray(obj)) {
-        // For arrays, treat each item individually, appending the index to the path
-        obj.forEach((item, index) => {
-          recurse(item, `${path}[${index}]`);
-        });
-      } else if (typeof obj === "object" && obj !== null) {
-        // If it's an object, recursively traverse it
-        for (const key in obj) {
-          const newPath = path ? `${path}.${key}` : key;
-          recurse(obj[key], newPath);
-        }
-      } else {
-        // If it's a value, save the path and value
-        flattened[path] = obj;
-      }
-    };
-
-    recurse(errors);
-    return flattened;
-  };
-
-  countErrors = (errors, includePaths) => {
-    const flattenedErrors = this.flattenErrors(errors);
-    let count = 0;
-
-    // Count matching paths from includePaths
-    for (const path in flattenedErrors) {
-      if (includePaths.some((includePath) => path.startsWith(includePath))) {
-        count++;
-      }
+  // Count matching paths from flattenedErrors based on includePaths
+  for (const path in flattenedErrors) {
+    if (includePaths.some((includePath) => path.startsWith(includePath))) {
+      count['errors'] = (count['errors'] || 0) + 1;
     }
+  }
 
-    return count;
+  // Count severity from severityChecks based on includePaths
+  for (const key in severityChecks) {
+    const severity = severityChecks[key].severity;
+    const path = key;  
+
+    if (severity && includePaths.some((includePath) => path.startsWith(includePath))) {
+      count[severity] = (count[severity] || 0) + 1;
+    }
+  }
+
+  return count;
+};
+  
+
+renderAccordion = (props) => {
+  const {
+    form: { errors, status, initialErrors, initialValues, values },
+  } = props;
+  const { includesPaths, label, children, active } = this.props;
+
+  const uiProps = _omit(this.props, ["optimized", "includesPaths"]);
+  const hasError =
+    this.hasError(errors, initialValues, values) || this.hasError(initialErrors);
+
+  const errorCount = this.countErrorsAndSeverity(errors, includesPaths) || this.countErrorsAndSeverity(initialErrors, includesPaths);
+  
+  const errorClass = hasError ? "error secondary" : "";
+  const [activeIndex, setActiveIndex] = useState(active ? 0 : -1);
+
+  const handleTitleClick = (e, { index }) => {
+    setActiveIndex(activeIndex === index ? -1 : index);
   };
 
-  renderAccordion = (props) => {
-    const {
-      form: { errors, status, initialErrors, initialValues, values },
-    } = props;
-    const { includesPaths, label, children, active } = this.props;
-
-    const uiProps = _omit(this.props, ["optimized", "includesPaths"]);
-    const hasError =
-      this.hasError(errors, initialValues, values) || this.hasError(initialErrors);
-
-    const errorCount =
-      this.countErrors(errors, includesPaths) ||
-      this.countErrors(initialErrors, includesPaths);
-    const errorClass = hasError ? "error secondary" : "";
-    const [activeIndex, setActiveIndex] = useState(active ? 0 : -1);
-
-    const handleTitleClick = (e, { index }) => {
-      setActiveIndex(activeIndex === index ? -1 : index);
-    };
-
-    return (
-      <Accordion
-        inverted
-        className={`invenio-accordion-field ${errorClass}`}
-        {...uiProps}
+  return (
+    <Accordion
+      inverted
+      className={`invenio-accordion-field ${errorClass}`}
+      {...uiProps}
+    >
+      <Accordion.Title
+        active={activeIndex === 0}
+        index={0}
+        onClick={handleTitleClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            handleTitleClick(e, { index: 0 });
+          }
+        }}
+        tabIndex={0}
       >
-        <Accordion.Title
-          active={activeIndex === 0}
-          index={0}
-          onClick={handleTitleClick}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              handleTitleClick(e, { index: 0 });
-            }
-          }}
-          tabIndex={0}
-        >
-          {label}
-          {errorCount > 0 && (
-            <Label size="tiny" circular negative className="error-label">
-              {errorCount} {errorCount === 1 ? "error" : "errors"}
-            </Label>
-          )}
-          <Icon name={activeIndex === 0 ? "angle down" : "angle right"} />
-        </Accordion.Title>
-        <Accordion.Content active={activeIndex === 0}>
-          <Container>{children}</Container>
-        </Accordion.Content>
-      </Accordion>
-    );
-  };
+        {label}
+
+        {Object.keys(errorCount).map((severity) => {
+          if (severity === "errors" && errorCount[severity] > 0) {
+            return (
+              <Label
+                key={severity}
+                size="tiny"
+                circular
+                negative
+                className="accordion-label error"
+              >
+                {errorCount[severity]} {errorCount[severity] === 1 ? "error" : "errors"}
+              </Label>
+            );
+          }
+
+          if (severity !== "errors" && errorCount[severity] > 0) {
+            return (
+              <Label
+                key={severity}
+                size="tiny"
+                circular
+                className={`accordion-label ${severity}`} // Dynamically assign the class based on severity
+              >
+                {errorCount[severity]} {errorCount[severity] === 1 ? severity : `${severity}s`}
+              </Label>
+            );
+          }
+
+          return null;
+        })}
+
+        <Icon name={activeIndex === 0 ? "angle down" : "angle right"} />
+      </Accordion.Title>
+
+      <Accordion.Content active={activeIndex === 0}>
+        <Container>{children}</Container>
+      </Accordion.Content>
+    </Accordion>
+  );
+};
+
 
   render() {
     const { optimized } = this.props;
