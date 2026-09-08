@@ -19,6 +19,8 @@ import "tinymce/plugins/link";
 import "tinymce/plugins/lists";
 import "tinymce/plugins/wordcount";
 import "tinymce/plugins/preview";
+import "tinymce/plugins/charmap";
+import "tinymce/plugins/fullscreen";
 import PropTypes from "prop-types";
 import { Button, Message } from "semantic-ui-react";
 import { FilesList } from "./FilesList";
@@ -339,11 +341,13 @@ export class RichEditor extends Component {
         "table",
         "wordcount",
         "preview",
+        "charmap",
+        "fullscreen",
       ],
       contextmenu: false,
-      toolbar: `blocks | bold italic codesample blockquote table | bullist numlist | outdent indent | link image ${
+      toolbar: `blocks | bold italic subscript superscript charmap codesample blockquote table | bullist numlist | outdent indent | link image ${
         attachFilesEnabled ? "attach " : " "
-      }| wordcount | undo redo | code | custom_preview`,
+      }| wordcount | undo redo fullscreen | code | custom_preview`,
       autoresize_bottom_margin: 20,
       block_formats: "Paragraph=p; Header 1=h1; Header 2=h2; Header 3=h3",
       table_advtab: false,
